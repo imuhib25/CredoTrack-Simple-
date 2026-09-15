@@ -200,7 +200,10 @@
     <div class="export-btns">
         <button onclick="exportCSV()">Export CSV</button>
         <button onclick="exportPDF()">Export PDF</button>
+        <button onclick="document.getElementById('pdfImport').click()">Import PDF</button>
+        <input id="pdfImport" type="file" accept=".pdf,application/pdf" style="display:none" onchange="importPDF(event)">
     </div>
+    <div id="importStatus" style="margin-top:10px;text-align:center;font-size:0.9em;color:#555;"></div>
 
     <footer>
         Design & Developed by <strong>Intisar Muhib</strong>😊
@@ -209,6 +212,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
 
 <script>
 let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
@@ -340,6 +344,135 @@ function filterMonth() {
     const m = document.getElementById('month').value;
     const y = document.getElementById('year').value;
     updateDisplay(transactions.filter(t => t.date.startsWith(`${y}-${m}`)));
+}
+
+// Import transactions from a PDF
+async function importPDF(event) {
+    const file = event.target.files[0];
+    const status = document.getElementById('importStatus');
+
+    if (!file) return;
+
+    status.textContent = 'Reading PDF...';
+
+    try {
+        // PDF.js is loaded as an ES module. Dynamically import it so the
+        // rest of the application continues to work normally.
+        const pdfjsLib = await import(
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs'
+        );
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+        let allItems = [];
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+            const page = await pdf.getPage(pageNumber);
+            const content = await page.getTextContent();
+
+            // Keep x/y positions so table rows can be reconstructed.
+            const items = content.items
+                .filter(item => item.str && item.str.trim())
+                .map(item => ({
+                    text: item.str.trim(),
+                    x: item.transform[4],
+                    y: item.transform[5]
+                }));
+
+            allItems.push(...items);
+        }
+
+        const imported = parsePDFTransactions(allItems);
+
+        if (!imported.length) {
+            throw new Error(
+                'No transaction rows were found. The PDF should contain rows with Date, Name/Description, Type (Debt/Credit), and Amount.'
+            );
+        }
+
+        const shouldMerge = confirm(
+            `Found ${imported.length} transaction(s) in the PDF.\n\n` +
+            'OK = Add them to your existing transactions\n' +
+            'Cancel = Replace your existing transactions'
+        );
+
+        transactions = shouldMerge ? transactions.concat(imported) : imported;
+
+        save();
+        status.textContent =
+            `Successfully imported ${imported.length} transaction(s).`;
+
+    } catch (error) {
+        console.error('PDF import error:', error);
+        status.textContent = 'PDF import failed.';
+        alert('Could not import the PDF.\\n\\n' + error.message);
+    } finally {
+        // Allow importing the same PDF again.
+        event.target.value = '';
+    }
+}
+
+function parsePDFTransactions(items) {
+    const rows = [];
+
+    // Group text items by their vertical position.
+    const sorted = [...items].sort((a, b) => {
+        if (Math.abs(a.y - b.y) > 3) return b.y - a.y;
+        return a.x - b.x;
+    });
+
+    const grouped = [];
+
+    sorted.forEach(item => {
+        let row = grouped.find(r => Math.abs(r.y - item.y) <= 3);
+
+        if (!row) {
+            row = { y: item.y, items: [] };
+            grouped.push(row);
+        }
+
+        row.items.push(item);
+    });
+
+    grouped.sort((a, b) => b.y - a.y);
+
+    grouped.forEach(row => {
+        row.items.sort((a, b) => a.x - b.x);
+
+        const text = row.items
+            .map(item => item.text)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // Expected table row:
+        // YYYY-MM-DD | Description | DEBT/CREDIT | $123.45
+        const match = text.match(
+            /(\d{4}-\d{2}-\d{2})\s+(.+?)\s+(DEBT|CREDIT)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)/i
+        );
+
+        if (!match) return;
+
+        const date = match[1];
+        const name = match[2].trim();
+        const type = match[3].toLowerCase();
+        const amount = parseFloat(match[4].replace(/,/g, ''));
+
+        if (
+            name &&
+            (type === 'debt' || type === 'credit') &&
+            Number.isFinite(amount) &&
+            amount > 0
+        ) {
+            rows.push({ name, amount, type, date });
+        }
+    });
+
+    return rows;
 }
 
 function exportCSV() {

@@ -6,11 +6,24 @@
 <title>Debt & Credit Tracker</title>
 
 <style>
+    * {
+        box-sizing: border-box;
+    }
+
+    html {
+        width: 100%;
+        overflow-x: hidden;
+    }
+
     body {
         font-family: Arial, sans-serif;
         background: #f4f7f6;
         margin: 0;
         padding: 0;
+        width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
+        -webkit-text-size-adjust: 100%;
     }
 
     /* SPLASH SCREEN */
@@ -25,6 +38,8 @@
         color: #fff;
         z-index: 9999;
         transition: opacity 0.6s ease;
+        padding: 24px;
+        text-align: center;
     }
 
     #splash.hidden {
@@ -33,59 +48,65 @@
     }
 
     #splash h1 {
-        font-size: 2.2em;
+        font-size: clamp(1.7rem, 7vw, 2.2rem);
         margin: 0;
     }
 
     #splash p {
         margin-top: 10px;
         opacity: 0.9;
-        font-size: 1.1em;
+        font-size: clamp(0.95rem, 4vw, 1.1rem);
     }
 
     .container {
-        max-width: 900px;
-        margin: 40px auto;
+        width: min(900px, calc(100% - 24px));
+        margin: 16px auto;
         background: #fff;
-        padding: 20px 30px;
-        border-radius: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        padding: 18px;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
     }
 
     h1 {
         text-align: center;
         color: #333;
+        font-size: clamp(1.5rem, 6vw, 2rem);
+        line-height: 1.2;
+        margin: 4px 0 18px;
     }
 
     .summary {
-        display: flex;
-        justify-content: space-around;
-        margin: 20px 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin: 18px 0;
     }
 
     .summary div {
         background: #f0f0f0;
-        padding: 20px;
+        padding: 15px 10px;
         border-radius: 10px;
-        width: 40%;
+        width: auto;
         text-align: center;
-        font-size: 1.2em;
+        font-size: clamp(0.9rem, 3.8vw, 1.1rem);
     }
 
     .summary span {
         display: block;
-        font-size: 1.5em;
-        margin-top: 10px;
+        font-size: clamp(1.2rem, 6vw, 1.5rem);
+        margin-top: 7px;
         color: #2e86de;
+        word-break: break-word;
     }
 
     input, select, button {
-        padding: 10px;
+        padding: 12px;
         margin: 5px 0;
         width: 100%;
-        border-radius: 5px;
+        min-height: 44px;
+        border-radius: 7px;
         border: 1px solid #ccc;
-        font-size: 1em;
+        font-size: 16px;
         box-sizing: border-box;
     }
 
@@ -94,22 +115,32 @@
         color: #fff;
         border: none;
         cursor: pointer;
+        touch-action: manipulation;
     }
 
     button:hover {
         background: #1b4f72;
     }
 
+    /* Keep wide tables usable on small screens */
     table {
         width: 100%;
+        min-width: 650px;
         border-collapse: collapse;
         margin-top: 20px;
     }
 
+    .container > table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
     th, td {
-        padding: 12px;
+        padding: 10px;
         border-bottom: 1px solid #ddd;
         text-align: left;
+        white-space: nowrap;
     }
 
     th {
@@ -122,26 +153,88 @@
 
     .action-btn {
         width: auto;
-        padding: 6px 10px;
+        min-width: 64px;
+        min-height: 40px;
+        padding: 8px 10px;
         margin-right: 5px;
+        margin-top: 2px;
+        margin-bottom: 2px;
     }
 
     .edit-input {
         width: 100%;
-        padding: 5px;
+        padding: 8px;
+        min-height: 40px;
     }
 
     .export-btns {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 18px;
     }
 
     footer {
         text-align: center;
-        margin: 25px 0 10px;
-        font-size: 0.9em;
+        margin: 22px 0 5px;
+        font-size: 0.85rem;
         color: #555;
+        line-height: 1.5;
+    }
+
+    @media (max-width: 600px) {
+        .container {
+            width: calc(100% - 16px);
+            margin: 8px auto;
+            padding: 14px;
+            border-radius: 10px;
+        }
+
+        h1 {
+            margin-bottom: 14px;
+        }
+
+        .summary {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .summary div {
+            padding: 13px 7px;
+        }
+
+        .export-btns {
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+
+        .export-btns button {
+            margin: 0;
+        }
+
+        .container > table {
+            margin-left: -2px;
+            width: calc(100% + 4px);
+        }
+
+        #importStatus {
+            overflow-wrap: anywhere;
+        }
+    }
+
+    @media (max-width: 380px) {
+        .container {
+            width: calc(100% - 10px);
+            padding: 10px;
+        }
+
+        .summary {
+            grid-template-columns: 1fr;
+        }
+
+        .summary div {
+            padding: 12px;
+        }
     }
 </style>
 </head>
